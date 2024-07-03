@@ -1,0 +1,155 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import glob
+import os
+import matplotlib.animation as animation
+from PIL import Image
+
+# Cargar los datos
+path = "/Users/matiasmontesinos/Simulations/fargo3d/outputs/flyby/"
+
+# Datos de la grilla
+Rmin = 1.0
+Rmax = 30.0
+delta = 10.0
+
+# Cargar la grilla de la simulación
+domain_x = np.genfromtxt(path + "domain_x.dat")
+domain_y = np.genfromtxt(path + "domain_y.dat")[3:-3]
+
+NX = len(domain_x) - 1
+NY = len(domain_y) - 1
+
+dr = (Rmax - Rmin) / NY
+
+# Función para cargar la densidad de gas
+def cargar_densidad(output_number, path):
+    dens_out = np.fromfile(path + f"gasdens{output_number}.dat").reshape(NY, NX)
+    return dens_out
+
+# Coordenada r
+r_values = np.arange(Rmin, Rmax, dr)
+
+# Leer las coordenadas del planeta desde planet0.dat
+def leer_coordenadas_planeta(path, snapshot):
+    planet_file = path + "planet0.dat"
+    planet = np.genfromtxt(planet_file)
+    xp = planet[snapshot][1]  # Coordenada x del planeta
+    yp = planet[snapshot][2]  # Coordenada y del planeta
+    return xp, yp
+
+def Grilla_XY():
+    R = 0.5 * (domain_y[1:] + domain_y[:-1])
+    Phi = 0.5 * (domain_x[1:] + domain_x[:-1])
+    P, R = np.meshgrid(Phi, R)
+    X, Y = R * np.cos(P), R * np.sin(P)
+    return X, Y
+
+X, Y = Grilla_XY()
+
+# Establecer límites fijos para los ejes
+x_limits = (-(Rmax+delta), (Rmax+delta))
+y_limits = (-(Rmax+delta), (Rmax+delta))
+
+# Solicitar al usuario el snapshot a usar
+snapshot = int(input("Ingrese el número de snapshot: "))
+dens_out = cargar_densidad(snapshot, path)
+xp, yp = leer_coordenadas_planeta(path, snapshot)
+
+plt.figure(figsize=(8, 8))
+plt.pcolormesh(X, Y, np.log10(dens_out), cmap='jet', shading='nearest')
+plt.scatter(xp, yp, c='white', s=100, edgecolor='black', label='Planet Position')
+plt.colorbar(label='Log Gas Density [gr / cm$^2$]')
+plt.xlabel('X [AU]', fontsize=14)
+plt.ylabel('Y [AU]', fontsize=14)
+plt.title('Gas Density Distribution', fontsize=16)
+plt.xlim(x_limits)
+plt.ylim(y_limits)
+plt.gca().set_aspect('equal', adjustable='datalim')
+#plt.axis('equal')
+plt.legend()
+plt.tight_layout()
+plt.show()
+
+# Función para generar y guardar los plots 2D
+def plot_2D_data(output_number, path, X, Y, NY, NX, x_limits, y_limits):
+    dens_out = cargar_densidad(output_number, path)
+    xp, yp = leer_coordenadas_planeta(path, output_number)
+    
+    # Crear la carpeta si no existe
+    output_dir = os.path.join(path, "gas_png")
+    os.makedirs(output_dir, exist_ok=True)
+    
+    plt.figure(figsize=(8, 8))
+    plt.pcolormesh(X, Y, np.log10(dens_out), cmap='jet', shading='auto', vmin=vmin, vmax=vmax)
+    plt.scatter(xp, yp, c='white', s=100, edgecolor='black', label='Planet Position')
+    plt.colorbar(label='Log Gas Density [gr / cm$^2$]')
+    plt.xlabel('X [AU]', fontsize=14)
+    plt.ylabel('Y [AU]', fontsize=14)
+    plt.title(f'Gas Density Distribution - Output {output_number}', fontsize=16)
+    plt.xlim(x_limits)
+    plt.ylim(y_limits)
+    #plt.gca().set_aspect('equal', adjustable='datalim')
+    #plt.axis('equal')
+    plt.legend()
+    plt.tight_layout()
+    
+    # Guardar el PNG en la carpeta especificada
+    file_path = os.path.join(output_dir, f"output_{output_number:03d}.png")
+    plt.savefig(file_path)
+    plt.close()
+
+# Identificar el número de outputs disponibles
+output_files = glob.glob(path + "gasdens*.dat")
+output_numbers = sorted([int(f.split('gasdens')[-1].split('.dat')[0]) for f in output_files if f.split('gasdens')[-1].split('.dat')[0].isdigit()])
+
+# Calcular vmin y vmax
+vmin, vmax = None, None
+for output_number in output_numbers:
+    dens_out = cargar_densidad(output_number, path)
+    log_dens_out = np.log10(dens_out)
+    if vmin is None or vmax is None:
+        vmin = log_dens_out.min()
+        vmax = log_dens_out.max()
+    else:
+        vmin = min(vmin, log_dens_out.min())
+        vmax = max(vmax, log_dens_out.max())
+
+# Generar los plots para cada output
+for output_number in output_numbers:
+    plot_2D_data(output_number, path, X, Y, NY, NX, x_limits, y_limits)
+
+### Animar los PNGs
+# Ruta donde están almacenados los archivos PNG
+png_dir = path + "/gas_png/"
+
+# Obtener una lista de todos los archivos PNG
+png_files = sorted(glob.glob(png_dir + "output_*.png"))
+
+# Crear la figura para la animación
+fig = plt.figure(figsize=(8, 8))
+ax = fig.add_subplot(111)
+
+# Ocultar los ejes y eliminar los márgenes
+ax.axis('off')
+fig.subplots_adjust(left=0, right=1, top=1, bottom=0)
+
+# Función para cargar las imágenes
+def load_image(file):
+    img = Image.open(file)
+    return [plt.imshow(img, animated=True)]
+
+# Crear la animación
+frames = [load_image(file) for file in png_files]
+ani = animation.ArtistAnimation(fig, frames, interval=200, repeat_delay=1000, blit=True)
+
+# Guardar la animación en un archivo MP4
+ani.save(png_dir + 'gas_density_animation_from_png.mp4', fps=5, extra_args=['-vcodec', 'libx264'])
+
+plt.show()
+
+#interval: Especifica el tiempo entre fotogramas en milisegundos. Un interval más alto hace que la animación vaya más despacio, mientras que un interval más bajo hace que la animación vaya más rápido.
+#Ejemplo: Un interval de 200 ms significa que hay 200 milisegundos entre cada fotograma.
+
+#fps (frames per second): Especifica el número de fotogramas por segundo en el archivo de video resultante. Un fps más alto hace que la animación parezca más suave, mientras que un fps más bajo puede hacer que la animación se vea entrecortada.
+#Ejemplo: Un fps de 10 significa que el video mostrará 10 fotogramas por segundo.

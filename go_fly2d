@@ -1,0 +1,7 @@
+rm -r outputs/flyby2d/*
+make mrproper
+make clean
+make mrproper
+make SETUP=flyby2d
+make para
+mpirun -np 8 ./fargo3d setups/flyby2d/flyby2d.par

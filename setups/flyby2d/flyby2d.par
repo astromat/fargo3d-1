@@ -1,4 +1,4 @@
-Setup			fargo
+Setup			flyby2d
 
 ### Disk parameters
 
@@ -11,7 +11,7 @@ FlaringIndex		0.0		Slope for the aspect-ratio
 # Radial range for damping (in period-ratios). Values smaller than one
 # prevent damping.
 
-DampingZone 1.15
+DampingZone 45
 
 # Characteristic time for damping, in units of the inverse local
 # orbital frequency. Higher values means lower damping
@@ -33,19 +33,19 @@ Nx			384		Azimuthal number of zones
 Ny               	128		Radial number of zones
 Xmin			-3.14159265358979323844	
 Xmax			3.14159265358979323844
-Ymin			0.4		Inner boundary radius
-Ymax			3.0		Outer boundary radius
-OmegaFrame     		1.0005		Angular velocity for the frame of reference (If Frame is F).
-Frame			G		Method for moving the frame of reference
+Ymin			1.0		Inner boundary radius
+Ymax			50.0		Outer boundary radius
+OmegaFrame     		0.0		Angular velocity for the frame of reference (If Frame is F).
+Frame			F		Method for moving the frame of reference
 
 ### Output control parameters
 
 DT			0.314159265359	Physical time between fine-grain outputs
-Ninterm	 		15		Number of DTs between scalar fields outputs
+Ninterm	 		20		Number of DTs between scalar fields outputs
 Ntot			2000		Total number of DTs
 
-OutputDir		@outputs/fargo
+OutputDir		@outputs/flyby2d
 
 ### Plotting parameters
 
-PlotLog			yes
+PlotLog			no
